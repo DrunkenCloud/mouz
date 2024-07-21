@@ -94,7 +94,7 @@ public class GamePanel extends JPanel implements ActionListener {
 
 	public boolean validAppleYPosition() {
 		for (int i = 0; i < bodyParts; i++) {
-			if (appleX == x[i]) {
+			if (appleY == y[i]) {
 				return false;
 			}
 		}
