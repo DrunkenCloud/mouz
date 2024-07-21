@@ -202,12 +202,12 @@ public class GamePanel extends JPanel implements ActionListener {
 	        g.setColor(Color.ORANGE);
 		    g.setFont(new Font("Monospaced", Font.BOLD, 26));
 		    FontMetrics metrics1 = getFontMetrics(g.getFont());
-		    g.drawString("Press 'q' for to hide solution", (SCREEN_WIDTH - metrics1.stringWidth("Press 'q' for to hide solution"))/2, SCREEN_HEIGHT + 36);
+		    g.drawString("Press 'q' to hide solution", (SCREEN_WIDTH - metrics1.stringWidth("Press 'q' to hide solution"))/2, SCREEN_HEIGHT + 36);
 	    } else {
                 g.setColor(Color.RED);
                 g.setFont(new Font("Monospaced", Font.BOLD, 26));
                 FontMetrics metrics1 = getFontMetrics(g.getFont());
-   		        g.drawString("Press 'q' for to show solution", (SCREEN_WIDTH - metrics1.stringWidth("Press 'q' for to show solution"))/2, SCREEN_HEIGHT + 36);
+   		        g.drawString("Press 'q' to show solution", (SCREEN_WIDTH - metrics1.stringWidth("Press 'q' to show solution"))/2, SCREEN_HEIGHT + 36);
 	    }
 
         g.setColor(Color.ORANGE);
