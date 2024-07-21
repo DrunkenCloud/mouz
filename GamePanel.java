@@ -158,7 +158,7 @@ public class GamePanel extends JPanel implements ActionListener {
 				running = false;
 			}
 		}
-		if (bodyParts == 10) {
+		if (bodyParts == GAME_UNITS) {
 			running = false;
 			finish = true;
 		}
