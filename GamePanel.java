@@ -1,12 +1,16 @@
+import javax.lang.model.util.Elements.Origin;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Random;
+import java.util.Stack;
 import java.util.Vector;
 import java.util.PriorityQueue;
+import java.util.Queue;
 import java.util.Comparator;
+import java.util.LinkedList;
 
 public class GamePanel extends JPanel implements ActionListener {
     
@@ -16,10 +20,10 @@ public class GamePanel extends JPanel implements ActionListener {
     static final int GAME_UNITS = (SCREEN_HEIGHT * SCREEN_WIDTH) / UNIT_SIZE;
     static final int DELAY = 60;
     ArrayList<Point> route;
-    int[][] grid = new int[SCREEN_WIDTH / UNIT_SIZE][SCREEN_HEIGHT / UNIT_SIZE];
+    char[][] grid = new char[SCREEN_WIDTH / UNIT_SIZE][SCREEN_HEIGHT / UNIT_SIZE];
     boolean[][] wallVertical = new boolean[SCREEN_WIDTH / UNIT_SIZE + 1][SCREEN_HEIGHT / UNIT_SIZE];
     boolean[][] wallHorizontal = new boolean[SCREEN_WIDTH / UNIT_SIZE][SCREEN_HEIGHT / UNIT_SIZE + 1];
-    int playerX, playerY, endX, endY;
+    int playerX, playerY, endX, endY, originX, originY;
     boolean running = false, showSolution = false;
     char direction = 'A';
     Timer timer;
@@ -153,68 +157,142 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     }
 
-    public void temp(int x, int y, boolean[][] visited) {
+    public void bfs(int x, int y, boolean[][] visited) {
+        Queue<Point> queue = new LinkedList<>();
+        queue.add(new Point(x, y));
         visited[x][y] = true;
-        while (true) {
-            Vector<Integer> possibles = new Vector<Integer>();
-            if (y > 0 && !visited[x][y - 1])
-                possibles.add(1);
-            if (x > 0 && !visited[x - 1][y])
-                possibles.add(2);
-            if (y < SCREEN_HEIGHT / UNIT_SIZE - 1 && !visited[x][y + 1])
-                possibles.add(3);
-            if (x < SCREEN_WIDTH / UNIT_SIZE - 1 && !visited[x + 1][y])
-                possibles.add(4);
 
-            if (possibles.size() == 0)
-                break;
+        while (!queue.isEmpty()) {
+            Point curr = queue.remove();
+            int cx = curr.x;
+            int cy = curr.y;
 
-            int direction = possibles.get(random.nextInt(possibles.size()));
-            if (direction == 1) {
-                wallHorizontal[x][y] = false;
-                y -= 1;
-            } else if (direction == 2) {
-                wallVertical[x][y] = false;
-                x -= 1;
-            } else if (direction == 3) {
-                wallHorizontal[x][y + 1] = false;
-                y += 1;
-            } else {
-                wallVertical[x + 1][y] = false;
-                x += 1;
+            int[][] directions = {{1, 0, 'D'}, {-1, 0, 'A'}, {0, 1, 'S'}, {0, -1, 'W'}};
+
+            for (int[] dir : directions) {
+                int newX = cx + dir[0];
+                int newY = cy + dir[1];
+                char orientation = (char) dir[2];
+
+                if (newX >= 0 && newX < SCREEN_WIDTH / UNIT_SIZE && newY >= 0 && newY < SCREEN_HEIGHT / UNIT_SIZE && !visited[newX][newY]) {
+                    if ((dir[0] == 1 && !wallVertical[cx + 1][cy]) || (dir[0] == -1 && !wallVertical[cx][cy]) ||
+                        (dir[1] == 1 && !wallHorizontal[cx][cy + 1]) || (dir[1] == -1 && !wallHorizontal[cx][cy])) {
+                        visited[newX][newY] = true;
+                        queue.add(new Point(newX, newY));
+                        grid[newX][newY] = orientation;
+                    }
+                }
             }
-            visited[x][y] = true;
         }
 
+        grid[x][y] = 'O';
+    }
+
+    public boolean isConnected() {
+        boolean[][] visited = new boolean[SCREEN_WIDTH / UNIT_SIZE][SCREEN_HEIGHT / UNIT_SIZE];
         for (int i = 0; i < SCREEN_WIDTH / UNIT_SIZE; i++) {
             for (int j = 0; j < SCREEN_HEIGHT / UNIT_SIZE; j++) {
-                if (!visited[i][j]) {
-                    Vector<Integer> adjacents = new Vector<>();
-                    if (j > 0 && visited[i][j - 1])
-                        adjacents.add(1);
-                    if (i > 0 && visited[i - 1][j])
-                        adjacents.add(2);
-                    if (j < SCREEN_HEIGHT / UNIT_SIZE - 1 && visited[i][j + 1])
-                        adjacents.add(3);
-                    if (i < SCREEN_WIDTH / UNIT_SIZE - 1 && visited[i + 1][j])
-                        adjacents.add(4);
+                visited[i][j] = false;
+            }
+        }
 
-                    if (adjacents.size() > 0) {
-                        int direction = adjacents.get(random.nextInt(adjacents.size()));
-                        if (direction == 1) {
-                            wallHorizontal[i][j] = false;
-                            temp(i, j - 1, visited);
-                        } else if (direction == 2) {
-                            wallVertical[i][j] = false;
-                            temp(i - 1, j, visited);
-                        } else if (direction == 3) {
-                            wallHorizontal[i][j + 1] = false;
-                            temp(i, j + 1, visited);
-                        } else {
-                            wallVertical[i + 1][j] = false;
-                            temp(i + 1, j, visited);
-                        }
+        Queue<Point> queue = new LinkedList<>();
+        queue.add(new Point(originX, originY));
+        visited[originX][originY] = true;
+
+        while (!queue.isEmpty()) {
+            Point curr = queue.remove();
+            int cx = curr.x;
+            int cy = curr.y;
+
+            int[][] directions = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+
+            for (int[] dir : directions) {
+                int newX = cx + dir[0];
+                int newY = cy + dir[1];
+
+                if (newX >= 0 && newX < SCREEN_WIDTH / UNIT_SIZE && newY >= 0 && newY < SCREEN_HEIGHT / UNIT_SIZE && !visited[newX][newY]) {
+                    if ((dir[0] == 1 && !wallVertical[cx + 1][cy]) || (dir[0] == -1 && !wallVertical[cx][cy]) ||
+                        (dir[1] == 1 && !wallHorizontal[cx][cy + 1]) || (dir[1] == -1 && !wallHorizontal[cx][cy])) {
+                        visited[newX][newY] = true;
+                        queue.add(new Point(newX, newY));
                     }
+                }
+            }
+        }
+
+        System.out.println(allDone(visited));
+        return allDone(visited);
+    }
+
+    public void originShift() {
+        Vector<Integer> possibles = new Vector<Integer>();
+        if (originY != 0 && !wallHorizontal[originX][originY]) {
+            possibles.add(1);
+        }
+        if (originX != 0 && !wallVertical[originX][originY]) {
+            possibles.add(2);
+        }
+        if (originY != SCREEN_HEIGHT/UNIT_SIZE-1 && !wallHorizontal[originX][originY + 1]) {
+            possibles.add(3);
+        }
+        if (originX != SCREEN_WIDTH/UNIT_SIZE - 1 && !wallVertical[originX + 1][originY]) {
+            possibles.add(4);
+        }
+
+        if (possibles.size() == 0) {
+            return;
+        }
+
+        int direction = possibles.get(random.nextInt(possibles.size()));
+
+        if (direction == 1) {
+            grid[originX][originY] = 'W';
+            originY -= 1;
+            grid[originX][originY] = 'O';
+        } else if (direction == 2) {
+            grid[originX][originY] = 'A';
+            originX -= 1;
+            grid[originX][originY] = 'O';
+        } else if (direction == 3) {
+            grid[originX][originY] = 'S';
+            originY += 1;
+            grid[originX][originY] = 'O';
+        } else {
+            grid[originX][originY] = 'D';
+            originX += 1;
+            grid[originX][originY] = 'O';
+        }
+
+        if (originY != 0 && !wallHorizontal[originX][originY]) {
+            if (grid[originX][originY - 1] != 'S') {
+                wallHorizontal[originX][originY] = true;
+                if(!isConnected()) {
+                    wallHorizontal[originX][originY] = false;
+                }
+            }
+        }
+        if (originX != 0 && !wallVertical[originX][originY]){
+            if (grid[originX - 1][originY] != 'D') {
+                wallVertical[originX][originY] = true;
+                if(!isConnected()) {
+                    wallVertical[originX][originY] = false;
+                }
+            }
+        }
+        if (originY != SCREEN_HEIGHT/UNIT_SIZE-1 && !wallHorizontal[originX][originY + 1]) {
+            if (grid[originX][originY + 1] != 'W') {
+                wallHorizontal[originX][originY + 1] = true;
+                if(!isConnected()) {
+                    wallHorizontal[originX][originY + 1] = false;
+                }
+            }
+        }
+        if (originX != SCREEN_WIDTH/UNIT_SIZE - 1 && !wallVertical[originX + 1][originY]) {
+            if (grid[originX + 1][originY] != 'A') {
+                wallVertical[originX + 1][originY] = true;
+                if(!isConnected()) {
+                    wallVertical[originX + 1][originY] = false;
                 }
             }
         }
@@ -254,22 +332,17 @@ public class GamePanel extends JPanel implements ActionListener {
             }
         }
 
-        temp(random.nextInt(SCREEN_WIDTH / UNIT_SIZE), random.nextInt(SCREEN_HEIGHT / UNIT_SIZE), visited);
+        dfs(random.nextInt(SCREEN_WIDTH / UNIT_SIZE), random.nextInt(SCREEN_HEIGHT / UNIT_SIZE), visited);
 
-        while(!allDone(visited)){
-            boolean check = false;
-            for (int i = 0; i < SCREEN_HEIGHT/UNIT_SIZE; i++) {
-                for (int j = 0; j < SCREEN_WIDTH/UNIT_SIZE; j++) {
-                    if (check) {
-                        break;
-                    }
-                    if (!visited[i][j]) {
-                        check = true;
-                        temp(i, j, visited);
-                    }
-                }
+        for (int i = 0; i < SCREEN_WIDTH/UNIT_SIZE; i++) {
+            for (int j = 0; j < SCREEN_HEIGHT/UNIT_SIZE; j++) {
+                grid[i][j] = 'E';
             }
         }
+
+        originX = random.nextInt(SCREEN_WIDTH/UNIT_SIZE);
+        originY = random.nextInt(SCREEN_HEIGHT/UNIT_SIZE);
+        grid[originX][originY] = 'O';
     }
 
     public boolean isMazeValid() {
@@ -344,6 +417,9 @@ public class GamePanel extends JPanel implements ActionListener {
     }
     
     public void draw(Graphics g) {
+        originShift();
+        originX = random.nextInt(SCREEN_WIDTH/UNIT_SIZE);
+        originY = random.nextInt(SCREEN_HEIGHT/UNIT_SIZE);
         if (!running) {
             gameOver(g);
             return;
@@ -467,6 +543,7 @@ public class GamePanel extends JPanel implements ActionListener {
     public class MyKeyAdapter extends KeyAdapter {
         @Override
         public void keyPressed(KeyEvent k) {
+            System.out.println(originX + " , " + originY);
             switch (k.getKeyChar()) {
                 case 'w':
                 case 'W':
