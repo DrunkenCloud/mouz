@@ -2,8 +2,11 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Random;
 import java.util.Vector;
+import java.util.PriorityQueue;
+import java.util.Comparator;
 
 public class GamePanel extends JPanel implements ActionListener {
     
@@ -24,7 +27,7 @@ public class GamePanel extends JPanel implements ActionListener {
 
     GamePanel() {
         random = new Random();
-        this.setPreferredSize(new Dimension(SCREEN_WIDTH + 2, SCREEN_HEIGHT + 80));
+        this.setPreferredSize(new Dimension(SCREEN_WIDTH + 1, SCREEN_HEIGHT + 80));
         this.setBackground(Color.black);
         this.setFocusable(true);
         this.addKeyListener(new MyKeyAdapter());
@@ -38,6 +41,59 @@ public class GamePanel extends JPanel implements ActionListener {
             this.y = y;
             this.dist = dist;
         }
+    }
+
+    public ArrayList<Point> dijkstra(int startX, int startY, int endX, int endY) {
+        int[][] dist = new int[SCREEN_WIDTH / UNIT_SIZE][SCREEN_HEIGHT / UNIT_SIZE];
+        Point[][] prev = new Point[SCREEN_WIDTH / UNIT_SIZE][SCREEN_HEIGHT / UNIT_SIZE];
+        boolean[][] visited = new boolean[SCREEN_WIDTH / UNIT_SIZE][SCREEN_HEIGHT / UNIT_SIZE];
+        PriorityQueue<Node> queue = new PriorityQueue<>(Comparator.comparingInt(n -> n.dist));
+
+        for (int i = 0; i < SCREEN_WIDTH / UNIT_SIZE; i++) {
+            for (int j = 0; j < SCREEN_HEIGHT / UNIT_SIZE; j++) {
+                dist[i][j] = Integer.MAX_VALUE;
+                prev[i][j] = null;
+                visited[i][j] = false;
+            }
+        }
+
+        dist[startX][startY] = 0;
+        queue.add(new Node(startX, startY, 0));
+
+        while (!queue.isEmpty()) {
+            Node current = queue.poll();
+            int x = current.x, y = current.y;
+
+            if (visited[x][y]) continue;
+            visited[x][y] = true;
+
+            if (x == endX && y == endY) break;
+
+            int[][] directions = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+
+            for (int[] dir : directions) {
+                int newX = x + dir[0], newY = y + dir[1];
+                if (newX >= 0 && newX < SCREEN_WIDTH / UNIT_SIZE && newY >= 0 && newY < SCREEN_HEIGHT / UNIT_SIZE) {
+                    if ((dir[0] == 1 && !wallVertical[x + 1][y]) || (dir[0] == -1 && !wallVertical[x][y]) ||
+                        (dir[1] == 1 && !wallHorizontal[x][y + 1]) || (dir[1] == -1 && !wallHorizontal[x][y])) {
+                        int newDist = dist[x][y] + 1;
+                        if (newDist < dist[newX][newY]) {
+                            dist[newX][newY] = newDist;
+                            prev[newX][newY] = new Point(x, y);
+                            queue.add(new Node(newX, newY, newDist));
+                        }
+                    }
+                }
+            }
+        }
+
+        ArrayList<Point> path = new ArrayList<>();
+        for (Point at = new Point(endX, endY); at != null; at = prev[at.x][at.y]) {
+            path.add(at);
+        }
+
+        Collections.reverse(path);
+        return path.size() > 1 ? path : null;
     }
 
     public boolean allDone(boolean[][] visited) {
@@ -131,7 +187,7 @@ public class GamePanel extends JPanel implements ActionListener {
             }
         }
 
-        dfs(playerX, playerY, visited);
+        dfs(random.nextInt(SCREEN_WIDTH / UNIT_SIZE), random.nextInt(SCREEN_WIDTH / UNIT_SIZE), visited);
     }
 
     public boolean isMazeValid() {
@@ -151,12 +207,48 @@ public class GamePanel extends JPanel implements ActionListener {
     }
 
     public void startGame() {
-        playerX = random.nextInt(SCREEN_WIDTH / UNIT_SIZE);
-        playerY = random.nextInt(SCREEN_HEIGHT / UNIT_SIZE);
         do {
             resetWalls();
             createWalls();
         } while (!isMazeValid());
+
+        int fallback = 0;
+        boolean validPoints = false;
+
+        while (fallback < 100 && !validPoints) {
+            playerX = random.nextInt(SCREEN_WIDTH / UNIT_SIZE);
+            playerY = random.nextInt(SCREEN_HEIGHT / UNIT_SIZE);
+
+            while (playerX < (SCREEN_WIDTH / UNIT_SIZE) / 8 || playerX > (SCREEN_WIDTH / UNIT_SIZE) * 7 / 8) {
+                playerX = random.nextInt(SCREEN_WIDTH / UNIT_SIZE);
+            }
+
+            while (playerY < (SCREEN_HEIGHT / UNIT_SIZE) / 8 || playerY > (SCREEN_HEIGHT / UNIT_SIZE) * 7 / 8) {
+                playerY = random.nextInt(SCREEN_HEIGHT / UNIT_SIZE);
+            }
+
+            endX = random.nextInt(SCREEN_WIDTH / UNIT_SIZE);
+            endY = random.nextInt(SCREEN_HEIGHT / UNIT_SIZE);
+            int failsafe = 0;
+
+            while (Math.sqrt(Math.pow(playerX - endX, 2) + Math.pow(playerY - endY, 2)) < (SCREEN_WIDTH / UNIT_SIZE) && failsafe < 100) {
+                while (endX < (SCREEN_WIDTH / UNIT_SIZE) / 8 || endX > (SCREEN_WIDTH / UNIT_SIZE) * 7 / 8) {
+                    endX = random.nextInt(SCREEN_WIDTH / UNIT_SIZE);
+                }
+
+                while (endY < (SCREEN_HEIGHT / UNIT_SIZE) / 8 || endY > (SCREEN_HEIGHT / UNIT_SIZE) * 7 / 8) {
+                    endY = random.nextInt(SCREEN_HEIGHT / UNIT_SIZE);
+                }
+
+                failsafe++;
+            }
+
+            if (failsafe < 100) {
+                validPoints = true;
+            }
+
+            fallback++;
+        }
 
         running = true;
         timer = new Timer(DELAY, this);
@@ -193,17 +285,19 @@ public class GamePanel extends JPanel implements ActionListener {
             }
         }
 
-        g.setColor(Color.MAGENTA);
-        g.fillRect(playerX * UNIT_SIZE, playerY * UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
+        g.setColor(new Color(132, 3, 168));
+        g.fillRect(playerX * UNIT_SIZE + 2, playerY * UNIT_SIZE + 2, UNIT_SIZE - 4, UNIT_SIZE - 4);
 
-        g.setColor(Color.cyan);
-        g.fillRect(endX * UNIT_SIZE, endY * UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
+        g.setColor(new Color(135, 4, 61));
+        g.fillRect(endX * UNIT_SIZE + 2, endY * UNIT_SIZE + 2, UNIT_SIZE - 4, UNIT_SIZE - 4);
+
+        route = dijkstra(playerX, playerY, endX, endY);
 
         if (showSolution) {
-            g.setColor(Color.green);
+            g.setColor(Color.RED);
             if (route != null) {
                 for (Point p : route) {
-                    g.drawRect(p.x * UNIT_SIZE, p.y * UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
+                    g.drawRect(p.x * UNIT_SIZE + 1, p.y * UNIT_SIZE + 1, UNIT_SIZE - 2, UNIT_SIZE - 2);
                 }
             }
             g.setColor(Color.ORANGE);
@@ -259,6 +353,8 @@ public class GamePanel extends JPanel implements ActionListener {
                 if (!wallVertical[playerX + 1][playerY]) {
                     playerX += 1;
                 }
+                break;
+            default:
                 break;
         }
     }
