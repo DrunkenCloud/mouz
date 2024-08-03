@@ -3,6 +3,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.Vector;
 
 public class GamePanel extends JPanel implements ActionListener {
     
@@ -30,41 +31,6 @@ public class GamePanel extends JPanel implements ActionListener {
         startGame();
     }
 
-    public void possibleVerticalWall(int x, int y) {
-        wallVertical[x][y] = true;
-
-        if (!dfs(playerX, playerY, new boolean[SCREEN_WIDTH / UNIT_SIZE][SCREEN_HEIGHT / UNIT_SIZE])) {
-            wallVertical[x][y] = false;
-        }
-    }
-
-    public void possibleHorizontalWall(int x, int y) {
-        wallHorizontal[x][y] = true;
-
-        if (!dfs(playerX, playerY, new boolean[SCREEN_WIDTH / UNIT_SIZE][SCREEN_HEIGHT / UNIT_SIZE])) {
-            wallHorizontal[x][y] = false;
-        }
-    }
-
-    public boolean dfs(int x, int y, boolean[][] visited) {
-        if (x < 0 || x >= SCREEN_WIDTH / UNIT_SIZE || y < 0 || y >= SCREEN_HEIGHT / UNIT_SIZE || visited[x][y]) {
-            return false;
-        }
-
-        if (x == endX && y == endY) {
-            return true;
-        }
-
-        visited[x][y] = true;
-
-        boolean canMoveUp = !wallHorizontal[x][y];
-        boolean canMoveDown = !wallHorizontal[x][y + 1];
-        boolean canMoveLeft = !wallVertical[x][y];
-        boolean canMoveRight = !wallVertical[x + 1][y];
-
-        return (canMoveUp && dfs(x, y - 1, visited)) || (canMoveDown && dfs(x, y + 1, visited)) || (canMoveLeft && dfs(x - 1, y, visited)) || (canMoveRight && dfs(x + 1, y, visited));
-    }
-
     class Node {
         int x, y, dist;
         Node(int x, int y, int dist) {
@@ -74,47 +40,61 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     }
 
-    public void startGame() {
-        int fallback = 0;
-        while (fallback < 100){
-            playerX = random.nextInt(SCREEN_WIDTH / UNIT_SIZE);
-            playerY = random.nextInt(SCREEN_HEIGHT / UNIT_SIZE);
-            while (playerX < (SCREEN_WIDTH / UNIT_SIZE) / 8 || playerX > (SCREEN_WIDTH / UNIT_SIZE) * 7 / 8) {
-                playerX = random.nextInt(SCREEN_WIDTH / UNIT_SIZE);
-            }
-            while (playerY < (SCREEN_HEIGHT / UNIT_SIZE) / 8 || playerY > (SCREEN_HEIGHT / UNIT_SIZE) * 7 / 8) {
-                playerY = random.nextInt(SCREEN_HEIGHT / UNIT_SIZE);
-            }
-            endX = random.nextInt(SCREEN_WIDTH / UNIT_SIZE);
-            endY = random.nextInt(SCREEN_HEIGHT / UNIT_SIZE);
-            int failsafe = 0;
-            while ((Math.sqrt(Math.pow(playerX - endX, 2) + Math.pow(playerY - endY, 2)) < (SCREEN_WIDTH / UNIT_SIZE)) && failsafe < 100) {
-                while (endX < (SCREEN_WIDTH / UNIT_SIZE) / 8 || endX > (SCREEN_WIDTH / UNIT_SIZE) * 7 / 8) {
-                    endX = random.nextInt(SCREEN_WIDTH / UNIT_SIZE);
+    public boolean allDone(boolean[][] visited) {
+        for (int i = 0; i < SCREEN_WIDTH/UNIT_SIZE; i++) {
+            for (int j = 0; j < SCREEN_HEIGHT/UNIT_SIZE; j++) {
+                if (!visited[i][j]) {
+                    return false;
                 }
-                while (endY < (SCREEN_HEIGHT / UNIT_SIZE) / 8 || endY > (SCREEN_HEIGHT / UNIT_SIZE) * 7 / 8) {
-                    endY = random.nextInt(SCREEN_HEIGHT / UNIT_SIZE);
-                }
-                failsafe += 1;
             }
-            if (failsafe < 100) {
-                break;
+        }
+
+        return true;
+    }
+
+    public void dfs(int x, int y, boolean[][] visited) {
+        if (x < 0 || x >= SCREEN_WIDTH/UNIT_SIZE || y < 0 || y >= SCREEN_HEIGHT/UNIT_SIZE || visited[x][y]) {
+            return;
+        }
+
+        visited[x][y] = true;
+
+        if (allDone(visited)) {
+            return;
+        }
+
+        while(!allDone(visited)) {
+            Vector<Integer> possibles = new Vector<Integer>();
+            
+            if (y != 0 && !visited[x][y-1]) 
+                possibles.add(1);
+            if (x != 0 && !visited[x - 1][y])
+                possibles.add(2);
+            if (y != SCREEN_HEIGHT/UNIT_SIZE-1 && !visited[x][y + 1])
+                possibles.add(3);
+            if (x != SCREEN_WIDTH/UNIT_SIZE - 1 && !visited[x + 1][y])
+                possibles.add(4);
+
+            if (possibles.size() == 0) {
+                return;
             }
-            fallback += 1;
-        }
-        if (fallback == 100) {
-            System.out.println("Error Making maze (1)");
-        }
-        grid[endX][endY] = 2;
 
-        do {
-            resetWalls();
-            createWalls();
-        } while (!isMazeValid());
+            int direction = possibles.get(random.nextInt(possibles.size()));
 
-        running = true;
-        timer = new Timer(DELAY, this);
-        timer.start();
+            if (direction == 1) {
+                wallHorizontal[x][y] = false;
+                dfs(x, y - 1, visited);
+            } else if (direction == 2) {
+                wallVertical[x][y] = false;
+                dfs(x - 1, y, visited);
+            } else if (direction == 3) {
+                wallHorizontal[x][y + 1] = false;
+                dfs(x, y + 1, visited);
+            } else {
+                wallVertical[x + 1][y] = false;
+                dfs(x + 1, y, visited);
+            }
+        }
     }
 
     public void resetWalls() {
@@ -133,30 +113,25 @@ public class GamePanel extends JPanel implements ActionListener {
 
     public void createWalls() {
         for (int i = 0; i < SCREEN_HEIGHT / UNIT_SIZE; i++) {
-            wallVertical[0][i] = true;
-            wallVertical[SCREEN_WIDTH / UNIT_SIZE][i] = true;
-        }
-
-        for (int j = 0; j < SCREEN_WIDTH / UNIT_SIZE; j++) {
-            wallHorizontal[j][0] = true;
-            wallHorizontal[j][SCREEN_HEIGHT / UNIT_SIZE] = true;
-        }
-
-        for (int i = 0; i < SCREEN_WIDTH / UNIT_SIZE; i++) {
-            for (int j = 1; j < SCREEN_HEIGHT / UNIT_SIZE; j++) {
-                if (random.nextInt(10) > 3) {
-                    possibleHorizontalWall(i, j);
-                }
+            for(int j = 0; j < SCREEN_WIDTH/UNIT_SIZE + 1; j++) {
+                wallVertical[j][i] = true;
             }
         }
 
-        for (int i = 1; i < SCREEN_WIDTH / UNIT_SIZE; i++) {
-            for (int j = 0; j < SCREEN_HEIGHT / UNIT_SIZE; j++) {
-                if (random.nextInt(10) > 3) {
-                    possibleVerticalWall(i, j);
-                }
+        for (int i = 0; i < SCREEN_HEIGHT/UNIT_SIZE + 1; i++) {
+            for (int j = 0; j < SCREEN_WIDTH / UNIT_SIZE; j++) {
+                wallHorizontal[j][i] = true;
             }
         }
+
+        boolean[][] visited = new boolean[SCREEN_WIDTH/UNIT_SIZE][SCREEN_HEIGHT/UNIT_SIZE];
+        for (int i = 0; i < SCREEN_WIDTH/UNIT_SIZE; i++) {
+            for (int j = 0; j < SCREEN_HEIGHT/UNIT_SIZE; j++) {
+                visited[i][j] = false;
+            }
+        }
+
+        dfs(playerX, playerY, visited);
     }
 
     public boolean isMazeValid() {
@@ -172,12 +147,20 @@ public class GamePanel extends JPanel implements ActionListener {
             }
         }
 
-        boolean[][] visited = new boolean[SCREEN_WIDTH / UNIT_SIZE][SCREEN_HEIGHT / UNIT_SIZE];
-        if (!dfs(playerX, playerY, visited)) {
-            return false;
-        }
-
         return true;
+    }
+
+    public void startGame() {
+        playerX = random.nextInt(SCREEN_WIDTH / UNIT_SIZE);
+        playerY = random.nextInt(SCREEN_HEIGHT / UNIT_SIZE);
+        do {
+            resetWalls();
+            createWalls();
+        } while (!isMazeValid());
+
+        running = true;
+        timer = new Timer(DELAY, this);
+        timer.start();
     }
 
     @Override
