@@ -153,6 +153,73 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     }
 
+    public void temp(int x, int y, boolean[][] visited) {
+        visited[x][y] = true;
+        while (true) {
+            Vector<Integer> possibles = new Vector<Integer>();
+            if (y > 0 && !visited[x][y - 1])
+                possibles.add(1);
+            if (x > 0 && !visited[x - 1][y])
+                possibles.add(2);
+            if (y < SCREEN_HEIGHT / UNIT_SIZE - 1 && !visited[x][y + 1])
+                possibles.add(3);
+            if (x < SCREEN_WIDTH / UNIT_SIZE - 1 && !visited[x + 1][y])
+                possibles.add(4);
+
+            if (possibles.size() == 0)
+                break;
+
+            int direction = possibles.get(random.nextInt(possibles.size()));
+            if (direction == 1) {
+                wallHorizontal[x][y] = false;
+                y -= 1;
+            } else if (direction == 2) {
+                wallVertical[x][y] = false;
+                x -= 1;
+            } else if (direction == 3) {
+                wallHorizontal[x][y + 1] = false;
+                y += 1;
+            } else {
+                wallVertical[x + 1][y] = false;
+                x += 1;
+            }
+            visited[x][y] = true;
+        }
+
+        for (int i = 0; i < SCREEN_WIDTH / UNIT_SIZE; i++) {
+            for (int j = 0; j < SCREEN_HEIGHT / UNIT_SIZE; j++) {
+                if (!visited[i][j]) {
+                    Vector<Integer> adjacents = new Vector<>();
+                    if (j > 0 && visited[i][j - 1])
+                        adjacents.add(1);
+                    if (i > 0 && visited[i - 1][j])
+                        adjacents.add(2);
+                    if (j < SCREEN_HEIGHT / UNIT_SIZE - 1 && visited[i][j + 1])
+                        adjacents.add(3);
+                    if (i < SCREEN_WIDTH / UNIT_SIZE - 1 && visited[i + 1][j])
+                        adjacents.add(4);
+
+                    if (adjacents.size() > 0) {
+                        int direction = adjacents.get(random.nextInt(adjacents.size()));
+                        if (direction == 1) {
+                            wallHorizontal[i][j] = false;
+                            temp(i, j - 1, visited);
+                        } else if (direction == 2) {
+                            wallVertical[i][j] = false;
+                            temp(i - 1, j, visited);
+                        } else if (direction == 3) {
+                            wallHorizontal[i][j + 1] = false;
+                            temp(i, j + 1, visited);
+                        } else {
+                            wallVertical[i + 1][j] = false;
+                            temp(i + 1, j, visited);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     public void resetWalls() {
         for (int i = 0; i < SCREEN_WIDTH / UNIT_SIZE + 1; i++) {
             for (int j = 0; j < SCREEN_HEIGHT / UNIT_SIZE; j++) {
@@ -187,7 +254,22 @@ public class GamePanel extends JPanel implements ActionListener {
             }
         }
 
-        dfs(random.nextInt(SCREEN_WIDTH / UNIT_SIZE), random.nextInt(SCREEN_WIDTH / UNIT_SIZE), visited);
+        temp(random.nextInt(SCREEN_WIDTH / UNIT_SIZE), random.nextInt(SCREEN_HEIGHT / UNIT_SIZE), visited);
+
+        while(!allDone(visited)){
+            boolean check = false;
+            for (int i = 0; i < SCREEN_HEIGHT/UNIT_SIZE; i++) {
+                for (int j = 0; j < SCREEN_WIDTH/UNIT_SIZE; j++) {
+                    if (check) {
+                        break;
+                    }
+                    if (!visited[i][j]) {
+                        check = true;
+                        temp(i, j, visited);
+                    }
+                }
+            }
+        }
     }
 
     public boolean isMazeValid() {
